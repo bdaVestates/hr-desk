@@ -1,6 +1,6 @@
 // Vestates HR Desk - offline support.
 // Bump VERSION whenever you change index.html so every installed copy picks up the update.
-const VERSION = 'hrdesk-v1';
+const VERSION = 'hrdesk-v2';
 const SHELL = [
   './',
   './index.html',
@@ -12,11 +12,12 @@ const SHELL = [
   './icons/favicon-32.png'
 ];
 const LIB = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const LIB2 = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(VERSION)
-      .then(c => c.addAll(SHELL).then(() => c.add(LIB).catch(() => {}))) // the reader is cached again on first use if this fails
+      .then(c => c.addAll(SHELL).then(() => c.add(LIB).catch(() => {})).then(() => caches.open(VERSION)).then(c => c.add(LIB2).catch(() => {}))) // the reader is cached again on first use if this fails
       .then(() => self.skipWaiting())
   );
 });
@@ -59,7 +60,7 @@ self.addEventListener('fetch', e => {
 
   // Everything else (icons, spreadsheet reader): cache first.
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
-    if (res.ok && (url.origin === self.location.origin || req.url === LIB)) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+    if (res.ok && (url.origin === self.location.origin || req.url === LIB || req.url === LIB2)) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
     return res;
   })));
 });

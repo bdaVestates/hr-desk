@@ -84,7 +84,23 @@ tbody tr.click{cursor:pointer}tbody tr.click:hover td{background:var(--soft)}
 dialog{border:1px solid var(--line);border-radius:16px;background:var(--bg);color:var(--ink);padding:0;width:min(560px,94vw)}
 dialog::backdrop{background:rgb(0 0 0/.45)}
 .dlg{padding:22px}.dl{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 14px;font-size:14px;margin:14px 0}.dl dt{color:var(--muted)}.dl dd{margin:0}
-.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.pend{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--ink);color:var(--bg);box-shadow:0 -6px 20px rgb(0 0 0/.18)}
+.pend .wrap{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding-block:10px}
+.pend .btn{background:var(--mint);color:#0b0b0b;border-color:var(--mint)}.pend .btn.ghost{background:transparent;color:var(--bg);border-color:rgb(255 255 255/.35)}
+:root[data-theme=dark] .pend .btn.ghost,.pend .btn.ghost{color:inherit}
+body.haspend{padding-bottom:84px}
+.acts2{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+form.ef{display:grid;gap:18px}
+form.ef fieldset{border:0;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 14px}
+form.ef legend{font:700 15px "Space Grotesk",sans-serif;padding:0;margin-bottom:8px}
+form.ef label{display:grid;gap:4px;align-content:start;font-size:13px;color:var(--muted)}
+form.ef input,form.ef select{width:100%;height:44px;color:var(--ink)}
+form.ef .hint{font-size:12px;color:var(--muted)}
+.ferr{color:var(--crit);font-size:14px;min-height:1em}
+dialog.wide{width:min(760px,96vw)}
+.dlgfoot{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg);padding-top:12px}
+.edited{display:inline-block;font-size:11px;font-weight:600;color:#a86f00;margin-left:6px}
+.toast{position:fixed;z-index:9;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.on{opacity:1}
 .scroll{overflow-x:auto}
 [hidden]{display:none!important}
@@ -131,9 +147,11 @@ dialog::backdrop{background:rgb(0 0 0/.45)}
 </div>
 
 <dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+<div class="pend" id="pend" hidden><div class="wrap"><span id="pendTxt"></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="undoBtn">Undo last change</button><button class="btn" id="saveXlsx">Download updated Excel</button></span></div></div>
 <div class="toast" id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 {
 const $=s=>document.querySelector(s);
@@ -141,7 +159,7 @@ const COMPANIES=['365 Energy','Apex Restaurant','Vestates','Zbom Home','Farm2Tab
 const TABS=[['overview','Overview'],['salary','Salary cost'],['exits','Exits'],['contracts','Contracts & probation'],['people','People'],['quality','Data checks']];
 const STATUS=[['Expired','crit','--crit'],['Due ≤30 days','ser','--ser'],['Due 31–90 days','warn','--warn'],['Running >90 days','good','--good'],['No end date','gray','--gray'],['Check date','chk','--chk']];
 const PCLS={'On probation':'good','Ending ≤30 days':'ser','Ended ≤30 days ago':'crit','Completed':'gray'};
-const S={recs:[],src:'',company:'All',prob:6,asof:null,tab:'overview',q:''};
+const S={recs:[],src:'',company:'All',prob:6,asof:null,tab:'overview',q:'',buf:null,fileName:'',sheet:'',C:null,edits:{},hist:[],free:[],tblEnd:0,dataStart:0};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nf=new Intl.NumberFormat('en-NG');
 const fmt=n=>n?nf.format(Math.round(n)):'–';
@@ -169,13 +187,14 @@ function toDate(v){
 }
 const txt=v=>v==null?'':String(v).replace(/ /g,' ').replace(/\s+/g,' ').trim();
 function group(c){const u=c.toUpperCase();if(!u)return '';if(u.startsWith('365'))return '365 Energy';if(u.startsWith('APEX'))return 'Apex Restaurant';if(u.startsWith('VEST'))return 'Vestates';if(u.startsWith('ZBOM'))return 'Zbom Home';if(u.startsWith('FARM'))return 'Farm2Table';return 'Other / Unmapped'}
-function parseRows(rows,src){
+function parseRows(rows,rowStart){
+  rowStart=rowStart||0;
   let h=-1;
   for(let i=0;i<Math.min(rows.length,40);i++){const r=(rows[i]||[]).map(x=>txt(x).toLowerCase());if(r.includes('company')&&(r.includes('fullname')||r.includes('full name')||r.includes('job status'))){h=i;break}}
   if(h<0)throw new Error('Could not find the header row (a row with "Company" and "FullName"). Is this the employee database?');
   const hdr=rows[h].map(x=>txt(x).toLowerCase());
   const col=(...names)=>{for(const n of names){const i=hdr.indexOf(n);if(i>=0)return i}return -1};
-  const C={co:col('company'),fn:col('fullname','full name'),first:col('first name'),sur:col('surname'),hire:col('hiring date','hire date'),exp:col('contract expiry date'),dept:col('department'),js:col('job status'),title:col('job title'),gen:col('gender'),sal:col('monthly gross salary'),exit:col('exit date'),why:col('exit reason'),rev:col('revised contract date'),office:col('office'),mgr:col('reporting managers'),email:col('official emails')};
+  const C={co:col('company'),fn:col('fullname','full name'),first:col('first name'),middle:col('middle name'),sur:col('surname'),phone:col('official phone number'),renew:col('renewal status'),annual:col('annual gross salary'),hire:col('hiring date','hire date'),exp:col('contract expiry date'),dept:col('department'),js:col('job status'),title:col('job title'),gen:col('gender'),sal:col('monthly gross salary'),exit:col('exit date'),why:col('exit reason'),rev:col('revised contract date'),office:col('office'),mgr:col('reporting managers'),email:col('official emails')};
   const g=(r,i)=>i<0?null:r[i];
   const out=[];
   for(let i=h+1;i<rows.length;i++){
@@ -183,11 +202,12 @@ function parseRows(rows,src){
     let name=txt(g(r,C.fn));if(!name)name=[txt(g(r,C.first)),txt(g(r,C.sur))].filter(Boolean).join(' ');
     const rawHire=g(r,C.hire),rawExp=g(r,C.exp);
     const salV=g(r,C.sal);const sal=typeof salV==='number'?salV:(parseFloat(String(salV??'').replace(/[^\d.]/g,''))||0);
-    out.push({row:i+1,co,group:group(co),name:name||'(no name)',hire:toDate(rawHire),exp:toDate(rawExp),rev:toDate(g(r,C.rev)),exit:toDate(g(r,C.exit)),why:txt(g(r,C.why)),
+    out.push({row:rowStart+i+1,first:txt(g(r,C.first)),middle:txt(g(r,C.middle)),sur:txt(g(r,C.sur)),phone:txt(g(r,C.phone)),renew:txt(g(r,C.renew)),co,group:group(co),name:name||'(no name)',hire:toDate(rawHire),exp:toDate(rawExp),rev:toDate(g(r,C.rev)),exit:toDate(g(r,C.exit)),why:txt(g(r,C.why)),
       dept:txt(g(r,C.dept)),type:txt(g(r,C.js)),title:txt(g(r,C.title)),gender:txt(g(r,C.gen)),sal,office:txt(g(r,C.office)),mgr:txt(g(r,C.mgr)),email:txt(g(r,C.email)),
       textDate:(typeof rawHire==='string'&&rawHire.trim()!=='')||(typeof rawExp==='string'&&rawExp.trim()!=='')});
   }
   if(!out.length)throw new Error('The sheet has a header row but no employee rows.');
+  out.C=C;out.hdrRow=rowStart+h+1;
   return out;
 }
 function loadBuffer(buf,name){
@@ -195,7 +215,7 @@ function loadBuffer(buf,name){
   const wb=XLSX.read(buf,{type:'array',cellDates:true});
   const order=[...wb.SheetNames].sort((a,b)=>(b.toLowerCase()==='database')-(a.toLowerCase()==='database'));
   let err;
-  for(const sn of order){try{const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});return {recs:parseRows(rows),sheet:sn}}catch(e){err=e}}
+  for(const sn of order){try{const ws=wb.Sheets[sn];const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,blankrows:true});const st=ws['!ref']?XLSX.utils.decode_range(ws['!ref']).s.r:0;const recs=parseRows(rows,st);return {recs,sheet:sn,C:recs.C,hdrRow:recs.hdrRow}}catch(e){err=e}}
   throw err||new Error('No usable sheet found.');
 }
 
@@ -308,8 +328,8 @@ function vContracts(){
 function vPeople(){
   const q=S.q.toLowerCase();
   const list=S.recs.filter(r=>inF(r)&&(!q||[r.name,r.title,r.dept,r.group,r.type].join(' ').toLowerCase().includes(q))).sort((a,b)=>(b.active-a.active)||a.group.localeCompare(b.group)||a.name.localeCompare(b.name));
-  return `<section class="band"><div class="wrap"><div class="toolbar"><input type="search" id="search" placeholder="Search name, job title, department…" value="${esc(S.q)}" aria-label="Search staff"><span class="note" style="margin:0">${list.length} of ${cnt(S.recs,inF)} records · tap a row for details</span></div>
-  ${list.length?table([{h:'Employee',f:r=>esc(r.name)},{h:'Company',f:r=>esc(r.group)},{h:'Department',f:r=>esc(r.dept)},{h:'Job title',f:r=>esc(r.title)},{h:'Type',f:r=>esc(r.type)},{h:'Hired',n:1,f:r=>dstr(r.hireD)},{h:'Status',f:r=>r.active?pill('Active','good'):pill('Exited','gray')}],list.map(r=>({...r,_row:r.row})),null,{click:1}):'<div class="empty">No one matches that search.</div>'}</div></section>`;
+  return `<section class="band"><div class="wrap"><div class="toolbar"><input type="search" id="search" placeholder="Search name, job title, department…" value="${esc(S.q)}" aria-label="Search staff"><span class="note" style="margin:0">${list.length} of ${cnt(S.recs,inF)} records · tap a row to view or edit</span><button class="btn" data-act="add">+ Add employee</button></div>
+  ${list.length?table([{h:'Employee',f:r=>esc(r.name)+(S.edits[r.row]?'<span class="edited">edited</span>':'')},{h:'Company',f:r=>esc(r.group)},{h:'Department',f:r=>esc(r.dept)},{h:'Job title',f:r=>esc(r.title)},{h:'Type',f:r=>esc(r.type)},{h:'Hired',n:1,f:r=>dstr(r.hireD)},{h:'Status',f:r=>r.active?pill('Active','good'):pill('Exited','gray')}],list.map(r=>({...r,_row:r.row})),null,{click:1}):'<div class="empty">No one matches that search.</div>'}</div></section>`;
 }
 function issues(){
   const out=[];
@@ -341,18 +361,28 @@ function render(){
   try{$('#view').innerHTML=VIEWS[S.tab]()}catch(e){$('#view').innerHTML=`<div class="wrap"><div class="empty">Something went wrong drawing this view: ${esc(e.message)}</div></div>`}
 }
 function showApp(recs,src){
-  S.recs=recs;S.src=src;$('#srcLbl').textContent=src+' · '+recs.length+' records';
+  S.recs=recs;S.src=src;S.hist=[];$('#srcLbl').textContent=src+' · '+recs.length+' records';
   $('#start').hidden=true;$('#app').hidden=false;$('#exportBtn').hidden=false;
-  const h=location.hash.slice(1);if(VIEWS[h])S.tab=h;render();
+  const h=location.hash.slice(1);if(VIEWS[h])S.tab=h;render();pendUI();
 }
+function b64(u8){let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)}
+function unb64(t){const s=atob(t),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u}
+const packEdits=()=>Object.fromEntries(Object.entries(S.edits).map(([k,v])=>[k,Object.fromEntries(Object.entries(v).map(([f,x])=>[f,x instanceof Date?{d:ds(x)}:x]))]));
+const unpackEdits=o=>Object.fromEntries(Object.entries(o||{}).map(([k,v])=>[k,Object.fromEntries(Object.entries(v).map(([f,x])=>[f,x&&x.d?dp(x.d):x]))]));
 function persist(){
-  try{if($('#remember').checked)localStorage.setItem('hrdesk',JSON.stringify({src:S.src,prob:S.prob,recs:S.recs.map(r=>({...r,hire:ds(r.hire),exp:ds(r.exp),rev:ds(r.rev),exit:ds(r.exit)}))}));else localStorage.removeItem('hrdesk')}catch(e){}
+  try{if($('#remember').checked)localStorage.setItem('hrdesk',JSON.stringify({src:S.src,prob:S.prob,fileName:S.fileName,sheet:S.sheet,C:S.C,buf:S.buf?b64(S.buf):null,edits:packEdits(),
+    recs:S.recs.map(r=>{const o={};for(const k of KEEP)o[k]=r[k];o.hire=ds(r.hire);o.exp=ds(r.exp);o.rev=ds(r.rev);o.exit=ds(r.exit);return o})}));else localStorage.removeItem('hrdesk')}
+  catch(e){if($('#remember').checked)toast('This browser could not store the file - it will not be remembered')}
 }
+const KEEP=['row','co','group','name','first','middle','sur','hire','exp','rev','exit','why','dept','type','title','gender','sal','office','mgr','email','phone','renew','textDate','isNew'];
 const ds=d=>d instanceof Date?d.toISOString().slice(0,10):d;
 const dp=s=>s&&s!=='bad'?new Date(s+'T00:00:00Z'):s;
 async function readFile(f){
   $('#loadErr').textContent='';
-  try{const buf=await f.arrayBuffer();const {recs,sheet}=loadBuffer(new Uint8Array(buf),f.name);showApp(recs,f.name+' › '+sheet);persist();toast('Loaded '+recs.length+' records')}
+  if(pendingCount()&&!(await ask('You have unsaved changes. Open a new file and discard them?','Discard and open')))return;
+  try{const buf=new Uint8Array(await f.arrayBuffer());const {recs,sheet,C}=loadBuffer(buf,f.name);
+    S.buf=/\.xls[xm]$/i.test(f.name)?buf:null;S.fileName=f.name;S.sheet=sheet;S.C=C;S.edits={};
+    showApp(recs,f.name+' › '+sheet);await initZip();persist();toast('Loaded '+recs.length+' records')}
   catch(e){$('#loadErr').textContent=e.message;if(!$('#app').hidden)toast(e.message)}
 }
 function sample(){
@@ -366,19 +396,220 @@ function sample(){
     const exit=k%17===5?utc(T.getUTCFullYear(),(k%10),10):null;
     rec.push({row:8+k,co,group:group(co),name:F[k%F.length]+' '+L[(k*3)%L.length],hire,exp:end?new Date(end.getTime()+((k%6)-2)*864e5*9):null,rev:null,exit,why:exit?['Resignation','Termination','End of Contract'][k%3]:'',dept:['Operations','Finance','Facilities','Sales','Administration'][k%5],type,title:['Attendant','Officer','Supervisor','Analyst','Cook'][k%5],gender:k%3?'Male':'Female',sal:co.startsWith('Apex')||k%3===0?[90000,120000,150000,250000][k%4]:0,office:'Abuja',mgr:'',email:'',textDate:false});
   }
-  showApp(rec,'Sample data (made-up staff)');toast('Showing made-up sample staff');
+  S.buf=null;S.fileName='';S.sheet='';S.C=null;S.edits={};S.free=[];
+  showApp(rec,'Sample data (made-up staff)');toast('Showing made-up sample staff - edits work, but there is no Excel file to save them into');
 }
 function detail(row){
   const r=S.recs.find(x=>x.row==row);if(!r)return;
-  const items=[['Company',r.co],['Department',r.dept],['Job title',r.title],['Job status',r.type],['Office',r.office],['Reporting manager',r.mgr],['Official email',r.email],['Gender',r.gender],['Hiring date',dstr(r.hireD)],['Contract end',dstr(r.end)],['Contract status',r.cStatus?r.cStatus+(r.cDays!=null?' · '+dayTxt(r.cDays):''):''],['Probation end',r.probEnd?dstr(r.probEnd)+' · '+r.pStatus:''],['Monthly gross',r.sal?ngn(r.sal):'Not on file'],['Exit',r.exitD?dstr(r.exitD)+' · '+(r.why||'Reason not stated'):''],['Excel row',r.row]].filter(x=>x[1]!==''&&x[1]!=null);
-  $('#dlgBody').innerHTML=`<h2>${esc(r.name)}</h2><div>${r.active?pill('Active','good'):pill('Exited','gray')} <span class="note">${esc(r.group)}</span></div><dl class="dl">${items.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl><button class="btn" id="dlgClose">Close</button>`;
-  $('#dlg').showModal();$('#dlgClose').focus();
+  const items=[['Company',r.co],['Department',r.dept],['Job title',r.title],['Job status',r.type],['Office',r.office],['Reporting manager',r.mgr],['Official email',r.email],['Gender',r.gender],['Hiring date',dstr(r.hireD)],['Contract end',dstr(r.end)],['Contract status',r.cStatus?r.cStatus+(r.cDays!=null?' · '+dayTxt(r.cDays):''):''],['Probation end',r.probEnd?dstr(r.probEnd)+' · '+r.pStatus:''],['Monthly gross',r.sal?ngn(r.sal):'Not on file'],['Exit',r.exitD?dstr(r.exitD)+' · '+(r.why||'Reason not stated'):''],['Renewal status',r.renew],['Official phone',r.phone],['Excel row',r.row+(r.isNew?' (new)':'')]].filter(x=>x[1]!==''&&x[1]!=null);
+  $('#dlgBody').innerHTML=`<h2>${esc(r.name)}</h2><div>${r.active?pill('Active','good'):pill('Exited','gray')} <span class="note">${esc(r.group)}</span></div><dl class="dl">${items.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+  <div class="dlgfoot"><button class="btn ghost" data-act="edit" data-row="${r.row}" data-focus="exit">${r.active?'Record exit':'Edit exit'}</button>${isCT(r)?`<button class="btn ghost" data-act="edit" data-row="${r.row}" data-focus="rev">Renew contract</button>`:''}<button class="btn ghost" data-act="edit" data-row="${r.row}">Edit details</button><button class="btn" id="dlgClose">Close</button></div>`;
+  $('#dlg').classList.remove('wide');if(!$('#dlg').open)$('#dlg').showModal();$('#dlgClose').focus();
 }
 function csvFor(){
   const c=v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
   const head=['Employee','Company group','Company (as entered)','Department','Job title','Job status','Gender','Active','Hiring date','Contract end','Contract status','Days to contract end','Probation end','Probation status','Monthly gross','Exit date','Exit reason','Excel row'];
   const rows=S.recs.filter(inF).map(r=>[r.name,r.group,r.co,r.dept,r.title,r.type,r.gender,r.active?'Yes':'No',dstr(r.hireD),dstr(r.end),r.cStatus,r.cDays??'',dstr(r.probEnd),r.pStatus,r.sal||'',dstr(r.exitD),r.why,r.row]);
   return [head,...rows].map(r=>r.map(c).join(',')).join('\r\n');
+}
+/* ---------- editing ---------- */
+const REASONS=['Resignation','Termination','End of Contract','Retirement','Abandonment of Duty','Death','Other'];
+// field key -> [label, input type, section, rec property]
+const FIELDS=[
+  ['co','Company','co','Details','co'],['first','First name','text','Details','first'],['middle','Middle name','text','Details','middle'],['sur','Surname','text','Details','sur'],['fn','Full name','text','Details','name'],
+  ['js','Job status','js','Details','type'],['dept','Department','list','Details','dept'],['title','Job title','list','Details','title'],['office','Office','list','Details','office'],['mgr','Reporting manager','list','Details','mgr'],
+  ['gen','Gender','gen','Details','gender'],['email','Official email','email','Details','email'],['phone','Official phone number','tel','Details','phone'],
+  ['hire','Hiring date','date','Contract','hire'],['exp','Contract expiry date','date','Contract','exp'],['rev','Revised contract date','date','Contract','rev'],['renew','Renewal status','list','Contract','renew'],
+  ['sal','Monthly gross salary (₦)','money','Pay','sal'],
+  ['exit','Exit date','date','Exit','exit'],['why','Exit reason','why','Exit','why']];
+const pendingCount=()=>Object.keys(S.edits).length;
+const sameVal=(a,b)=>{if(a instanceof Date||b instanceof Date)return a instanceof Date&&b instanceof Date&&+a===+b;return (a??'')===(b??'')||(typeof a==='number'&&a===+b)};
+function uniq(prop){return [...new Set(S.recs.map(r=>r[prop]).filter(Boolean))].sort((a,b)=>a.localeCompare(b))}
+function ask(msg,okTxt){return new Promise(res=>{const d=$('#dlg');d.classList.remove('wide');$('#dlgBody').innerHTML=`<h3>${esc(msg)}</h3><div class="dlgfoot"><button class="btn ghost" id="askNo">Cancel</button><button class="btn" id="askYes">${esc(okTxt)}</button></div>`;if(!d.open)d.showModal();
+  $('#askNo').onclick=()=>{d.close();res(false)};$('#askYes').onclick=()=>{d.close();res(true)}})}
+function editForm(row,focus){
+  const r=row==null?null:S.recs.find(x=>x.row==row);const isNew=!r||r.isNew;
+  const v=k=>{if(!r)return '';const f=FIELDS.find(x=>x[0]===k);const x=r[f[4]];return x instanceof Date?ds(x):(x==='bad'?'':(x??''))};
+  const lists={dept:uniq('dept'),title:uniq('title'),office:uniq('office'),mgr:uniq('mgr'),renew:[...new Set(['Renewed','Not Renewed','Pending',...uniq('renew')])]};
+  const cos=[...new Set(['Vestates','365 FT','365 Contract','Apex FT','Apex Contract','Zbom','Farm2Table',...S.recs.map(x=>x.co.trim())])];
+  const input=([k,l,t])=>{
+    if(isNew&&k==='fn')return '';if(!isNew&&['first','middle','sur'].includes(k))return '';
+    const id='f_'+k,val=esc(v(k));let el;
+    if(t==='co')el=`<select id="${id}" name="${k}" required>${cos.map(c=>`<option ${c===v(k).trim()?'selected':''}>${esc(c)}</option>`).join('')}</select><span class="hint">“365 FT” and “365 Contract” both count as 365 Energy</span>`;
+    else if(t==='js')el=`<select id="${id}" name="${k}"><option value="">-</option>${['Full Time','Contract'].map(c=>`<option ${c===v(k)?'selected':''}>${c}</option>`).join('')}</select>`;
+    else if(t==='gen')el=`<select id="${id}" name="${k}"><option value="">Not stated</option>${['Male','Female'].map(c=>`<option ${c===v(k)?'selected':''}>${c}</option>`).join('')}</select>`;
+    else if(t==='why')el=`<input id="${id}" name="${k}" list="dl_why" value="${val}" autocomplete="off"><datalist id="dl_why">${REASONS.map(c=>`<option value="${c}">`).join('')}</datalist>`;
+    else if(t==='list')el=`<input id="${id}" name="${k}" list="dl_${k}" value="${val}" autocomplete="off"><datalist id="dl_${k}">${(lists[k]||[]).map(c=>`<option value="${esc(c)}">`).join('')}</datalist>`;
+    else if(t==='date')el=`<input id="${id}" name="${k}" type="date" value="${val}">`;
+    else if(t==='money')el=`<input id="${id}" name="${k}" type="number" min="0" step="any" inputmode="decimal" value="${r&&r.sal?r.sal:''}">`;
+    else el=`<input id="${id}" name="${k}" type="${t==='email'?'email':t==='tel'?'tel':'text'}" value="${val}" ${k==='first'||k==='fn'?'required':''}>`;
+    return `<label for="${id}">${esc(l)}${el}</label>`};
+  const secs=['Details','Contract','Pay','Exit'];
+  const d=$('#dlg');d.classList.add('wide');
+  $('#dlgBody').innerHTML=`<h2>${r?'Edit '+esc(r.name):'Add employee'}</h2><p class="note" style="margin-top:0">${S.buf?'Changes show on the dashboard straight away. Use <b>Download updated Excel</b> to save them into the employee file.':'Sample data: changes show on the dashboard but cannot be saved to an Excel file.'}</p>
+  <form class="ef" id="ef" data-row="${r?r.row:''}" novalidate>${secs.map(sec=>`<fieldset><legend>${sec}</legend>${FIELDS.filter(f=>f[3]===sec).map(input).join('')}</fieldset>`).join('')}
+  <p class="ferr" id="ferr" role="alert"></p>
+  <div class="dlgfoot"><button type="button" class="btn ghost" data-act="cancel" data-row="${r?r.row:''}">Cancel</button><button class="btn" type="submit">${r?'Save changes':'Add employee'}</button></div></form>`;
+  if(!d.open)d.showModal();
+  const fe=focus&&$('#f_'+focus);(fe||$('#ef input,#ef select')).focus();if(fe)fe.scrollIntoView({block:'center'});
+}
+function nextRow(){
+  const used=new Set(S.recs.map(r=>r.row));
+  const f=S.free.find(x=>!used.has(x));if(f)return f;
+  let m=Math.max(S.tblEnd||0,...S.recs.map(r=>r.row));return m+1;
+}
+function setField(r,k,val){
+  const prop=FIELDS.find(x=>x[0]===k)[4];r[prop]=val;
+  if(k==='co')r.group=group(val);
+  if(['hire','exp'].includes(k))r.textDate=false;
+  if(r.isNew&&['first','middle','sur'].includes(k))r.name=[r.first,r.middle,r.sur].filter(Boolean).join(' ')||'(no name)';
+}
+function saveForm(form){
+  const fd=new FormData(form),rowAttr=form.dataset.row,err=$('#ferr');
+  let r=rowAttr?S.recs.find(x=>x.row==rowAttr):null;
+  const val=k=>{const t=FIELDS.find(x=>x[0]===k)[2],raw=(fd.get(k)??'').toString().trim();
+    if(t==='date'){if(!raw)return null;const [y,m,d]=raw.split('-').map(Number);return utc(y,m-1,d)}
+    if(t==='money'){if(!raw)return 0;const n=+raw;return isNaN(n)?NaN:n}
+    return raw};
+  if(!r){if(!val('first')){err.textContent='Enter at least a first name.';return}if(!val('co')){err.textContent='Choose a company.';return}}
+  if(r&&!r.isNew&&fd.has('fn')&&!val('fn')){err.textContent='The full name cannot be empty.';return}
+  if(Number.isNaN(val('sal'))){err.textContent='Salary must be a number.';return}
+  const ex=val('exit'),hire=val('hire');if(ex&&hire&&ex<hire){err.textContent='The exit date is before the hiring date.';return}
+  const changes={};let added=false;
+  if(!r){r={row:nextRow(),isNew:true,co:'',group:'',name:'',first:'',middle:'',sur:'',hire:null,exp:null,rev:null,exit:null,why:'',dept:'',type:'',title:'',gender:'',sal:0,office:'',mgr:'',email:'',phone:'',renew:'',textDate:false};S.recs.push(r);added=true}
+  for(const [k] of FIELDS){if(!fd.has(k))continue;const prop=FIELDS.find(x=>x[0]===k)[4];const nv=val(k),ov=r[prop]==='bad'?null:r[prop];
+    if(!sameVal(nv,ov)){changes[k]=[r[prop],nv];setField(r,k,nv)}}
+  if(!added&&!Object.keys(changes).length){detail(r.row);toast('No changes');return}
+  const e=S.edits[r.row]||(S.edits[r.row]={});for(const k in changes)e[k]=changes[k][1];if(added)e.__new=true;
+  S.hist.push({row:r.row,changes,added});
+  render();pendUI();persist();detail(r.row);toast(added?'Added '+r.name:'Saved changes to '+r.name);
+}
+function undo(){
+  const h=S.hist.pop();if(!h){toast('Nothing to undo');return}
+  const i=S.recs.findIndex(x=>x.row==h.row);
+  if(h.added){S.recs.splice(i,1);delete S.edits[h.row]}
+  else{const r=S.recs[i],e=S.edits[h.row]||{};for(const k in h.changes){setField(r,k,h.changes[k][0]);delete e[k]}
+    // re-apply any older edits to the same fields still in history
+    for(const o of S.hist)if(o.row==h.row)for(const k in o.changes)e[k]=o.changes[k][1];
+    if(!Object.keys(e).filter(k=>k!=='__new').length&&!e.__new)delete S.edits[h.row]}
+  render();pendUI();persist();toast('Undone');
+}
+function pendUI(){
+  const n=pendingCount(),p=$('#pend');p.hidden=!n;document.body.classList.toggle('haspend',!!n);
+  if(!n)return;const adds=Object.values(S.edits).filter(e=>e.__new).length;
+  $('#pendTxt').textContent=`${n} employee record${n===1?'':'s'} changed${adds?` (${adds} new)`:''} - not yet saved to Excel`;
+  $('#saveXlsx').hidden=!S.buf;$('#undoBtn').hidden=!S.hist.length;
+  if(!S.buf)$('#pendTxt').textContent+=' · open the real employee file to save changes';
+}
+
+/* ---------- writing changes back into the original workbook ---------- */
+const NOF={createFolders:false};const NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main',RNS='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const colL=i=>{let s='',n=i+1;while(n){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26}return s};
+const colN=s=>{let n=0;for(const ch of s)n=n*26+ch.charCodeAt(0)-64;return n-1};
+const serial=d=>(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())-Date.UTC(1899,11,30))/864e5;
+const xml=t=>new DOMParser().parseFromString(t,'application/xml');
+const ser=d=>{let t=new XMLSerializer().serializeToString(d);if(!t.startsWith('<?xml'))t='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+t;return t};
+function resolve(base,target){if(target.startsWith('/'))return target.slice(1);const p=base.split('/');p.pop();for(const seg of target.split('/')){if(seg==='..')p.pop();else if(seg!=='.')p.push(seg)}return p.join('/')}
+async function locate(zip){
+  const wb=xml(await zip.file('xl/workbook.xml').async('string'));
+  const sh=[...wb.getElementsByTagNameNS(NS,'sheet')].find(e=>e.getAttribute('name')===S.sheet);if(!sh)throw new Error('Sheet "'+S.sheet+'" not found in the file');
+  const rid=sh.getAttributeNS(RNS,'id');
+  const rels=xml(await zip.file('xl/_rels/workbook.xml.rels').async('string'));
+  const rel=[...rels.getElementsByTagName('Relationship')].find(e=>e.getAttribute('Id')===rid);
+  const path=resolve('xl/workbook.xml',rel.getAttribute('Target'));
+  const relPath=path.replace(/([^/]+)$/,'_rels/$1.rels');let table=null;
+  if(zip.file(relPath)){const sr=xml(await zip.file(relPath).async('string'));
+    for(const r of sr.getElementsByTagName('Relationship'))if(/\/table$/.test(r.getAttribute('Type'))){const tp=resolve(path,r.getAttribute('Target'));const td=xml(await zip.file(tp).async('string'));const ref=td.documentElement.getAttribute('ref');
+      const m=ref.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);if(m&&+m[2]===hdrRowOf()){table={path:tp,doc:td,ref,c1:m[1],r1:+m[2],c2:m[3],r2:+m[4]};break}}}
+  return {path,table};
+}
+const hdrRowOf=()=>Math.min(...S.recs.filter(r=>!r.isNew).map(r=>r.row))-1;
+async function initZip(){
+  S.free=[];S.tblEnd=0;
+  if(!S.buf||typeof JSZip==='undefined'){pendUI();return}
+  try{const zip=await JSZip.loadAsync(S.buf,{createFolders:false});const {path,table}=await locate(zip);
+    const doc=xml(await zip.file(path).async('string'));const valued=new Set();
+    const coL=colL(S.C&&S.C.co>=0?S.C.co:0);
+    for(const row of doc.getElementsByTagNameNS(NS,'row')){const rn=row.getAttribute('r');const c=[...row.getElementsByTagNameNS(NS,'c')].find(x=>x.getAttribute('r')===coL+rn);if(c&&(c.getElementsByTagNameNS(NS,'v').length||c.getElementsByTagNameNS(NS,'is').length))valued.add(+rn)}
+    if(table){S.tblEnd=table.r2;for(let r=table.r1+1;r<=table.r2;r++)if(!valued.has(r)&&!S.recs.some(x=>x.row===r&&!x.isNew))S.free.push(r)}
+  }catch(e){console.warn(e)}
+  pendUI();
+}
+async function buildWorkbook(){
+  if(typeof JSZip==='undefined')throw new Error('The Excel writer did not load. Check your internet connection and reload.');
+  const zip=await JSZip.loadAsync(S.buf,{createFolders:false});const {path,table}=await locate(zip);
+  const doc=xml(await zip.file(path).async('string'));const sd=doc.getElementsByTagNameNS(NS,'sheetData')[0];
+  // styles: which cell styles are dates
+  const sx=xml(await zip.file('xl/styles.xml').async('string'));const fmts={};for(const n of sx.getElementsByTagNameNS(NS,'numFmt'))fmts[n.getAttribute('numFmtId')]=n.getAttribute('formatCode');
+  const xfs=[...sx.getElementsByTagNameNS(NS,'cellXfs')[0].getElementsByTagNameNS(NS,'xf')].map(x=>+x.getAttribute('numFmtId'));
+  const isDateStyle=s=>{const id=xfs[+s||0];if((id>=14&&id<=22)||(id>=45&&id<=47))return true;const f=fmts[id];return !!f&&/[dy]/i.test(f.replace(/\[[^\]]*\]|"[^"]*"|\\./g,''))&&!/[#0]/.test(f.replace(/\[[^\]]*\]|"[^"]*"/g,''))};
+  const rows={};for(const r of sd.getElementsByTagNameNS(NS,'row'))rows[r.getAttribute('r')]=r;
+  const firstData=Math.min(...S.recs.filter(r=>!r.isNew).map(r=>r.row));
+  const cellOf=(rowEl,ref)=>[...rowEl.getElementsByTagNameNS(NS,'c')].find(c=>c.getAttribute('r')===ref);
+  const styleAt=(rn,ci)=>{const re=rows[rn];const c=re&&cellOf(re,colL(ci)+rn);return c?c.getAttribute('s'):null};
+  const dateStyle=(()=>{for(const k of ['hire','exp','rev']){const ci=S.C[k];if(ci>=0){const s=styleAt(firstData,ci);if(s&&isDateStyle(s))return s}}for(let i=0;i<xfs.length;i++)if(isDateStyle(i))return String(i);return null})();
+  function rowEl(rn){
+    if(rows[rn])return rows[rn];
+    const el=doc.createElementNS(NS,'row');el.setAttribute('r',rn);
+    const tpl=rows[table?table.r2:rn-1];if(tpl){for(const a of ['spans','s','customFormat','ht','customHeight'])if(tpl.hasAttribute(a))el.setAttribute(a,tpl.getAttribute(a));
+      for(const c of tpl.getElementsByTagNameNS(NS,'c')){const n=doc.createElementNS(NS,'c');n.setAttribute('r',c.getAttribute('r').replace(/\d+$/,rn));if(c.hasAttribute('s'))n.setAttribute('s',c.getAttribute('s'));el.appendChild(n)}}
+    const after=[...sd.getElementsByTagNameNS(NS,'row')].find(r=>+r.getAttribute('r')>rn);sd.insertBefore(el,after||null);rows[rn]=el;return el}
+  function cell(rn,ci,isNewRow){
+    const re=rowEl(rn),ref=colL(ci)+rn;let c=cellOf(re,ref);
+    if(!c){c=doc.createElementNS(NS,'c');c.setAttribute('r',ref);const s=styleAt(firstData,ci);if(s)c.setAttribute('s',s);
+      const after=[...re.getElementsByTagNameNS(NS,'c')].find(x=>colN(x.getAttribute('r').replace(/\d+$/,''))>ci);re.insertBefore(c,after||null)}
+    else if(isNewRow){const s=styleAt(firstData,ci);if(s)c.setAttribute('s',s)}
+    while(c.firstChild)c.removeChild(c.firstChild);c.removeAttribute('t');c.removeAttribute('vm');c.removeAttribute('cm');return c}
+  function put(rn,ci,val,isNewRow){
+    if(ci==null||ci<0)return;const c=cell(rn,ci,isNewRow);
+    if(val==null||val===''){return}
+    if(val instanceof Date){if(!isDateStyle(c.getAttribute('s'))&&dateStyle)c.setAttribute('s',dateStyle);const v=doc.createElementNS(NS,'v');v.textContent=serial(val);c.appendChild(v);return}
+    if(typeof val==='number'){const v=doc.createElementNS(NS,'v');v.textContent=String(val);c.appendChild(v);return}
+    if(typeof val==='object'&&val.f){const f=doc.createElementNS(NS,'f');f.textContent=val.f;c.appendChild(f);return}
+    c.setAttribute('t','inlineStr');const is=doc.createElementNS(NS,'is'),t=doc.createElementNS(NS,'t');t.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:space','preserve');t.textContent=String(val);is.appendChild(t);c.appendChild(is)}
+  let maxRow=0;
+  for(const [rk,e] of Object.entries(S.edits)){
+    const rn=+rk,r=S.recs.find(x=>x.row===rn);if(!r)continue;maxRow=Math.max(maxRow,rn);const isNewRow=!!e.__new;
+    for(const [k,val] of Object.entries(e)){if(k==='__new')continue;const ci=S.C[k];
+      if(k==='sal'){put(rn,ci,val||null,isNewRow);continue}
+      put(rn,ci,val,isNewRow)}
+    if(isNewRow){
+      if(S.C.fn>=0)put(rn,S.C.fn,r.name,true);
+      if(S.C.annual>=0&&S.C.sal>=0)put(rn,S.C.annual,{f:colL(S.C.sal)+rn+'*12'},true);
+      // carry simple per-row formulas (e.g. Contract Duration) down from the row above
+      const src=rows[firstData];if(src)for(const c of src.getElementsByTagNameNS(NS,'c')){const f=c.getElementsByTagNameNS(NS,'f')[0];const ci=colN(c.getAttribute('r').replace(/\d+$/,''));
+        if(!f||!f.textContent||f.getAttribute('t')==='shared'||[S.C.fn,S.C.annual].includes(ci))continue;
+        const tc=cellOf(rowEl(rn),colL(ci)+rn);if(tc&&(tc.getElementsByTagNameNS(NS,'v').length||tc.getElementsByTagNameNS(NS,'is').length))continue;
+        put(rn,ci,{f:f.textContent.replace(new RegExp('(\\$?[A-Z]{1,3})'+firstData+'(?!\\d)','g'),'$1'+rn)},true)}
+    }}
+  // grow the Excel table (and sheet dimension) if new rows went past its end
+  if(table&&maxRow>table.r2){const nr=table.ref.replace(/\d+$/,maxRow);table.doc.documentElement.setAttribute('ref',nr);const af=table.doc.getElementsByTagNameNS(NS,'autoFilter')[0];if(af)af.setAttribute('ref',nr);zip.file(table.path,ser(table.doc),NOF)}
+  const dim=doc.getElementsByTagNameNS(NS,'dimension')[0];if(dim){const m=dim.getAttribute('ref').match(/^([A-Z]+\d+):([A-Z]+)(\d+)$/);if(m&&maxRow>+m[3])dim.setAttribute('ref',m[1]+':'+m[2]+maxRow)}
+  zip.file(path,ser(doc),NOF);
+  // make Excel recalculate every formula (dashboard included) when the file is opened
+  let wbx=await zip.file('xl/workbook.xml').async('string');
+  if(/<calcPr\b/.test(wbx))wbx=wbx.replace(/<calcPr\b([^>]*?)\s*(\/?)>/,(m,a,sl)=>'<calcPr'+a.replace(/\sfullCalcOnLoad="[^"]*"/,'')+' fullCalcOnLoad="1"'+(sl?'/':'')+'>');
+  else wbx=wbx.replace(/(<\/sheets>(?:\s*<functionGroups[^>]*\/>)?(?:\s*<externalReferences>.*?<\/externalReferences>)?(?:\s*<definedNames>.*?<\/definedNames>)?)/s,'$1<calcPr fullCalcOnLoad="1"/>');
+  zip.file('xl/workbook.xml',wbx,NOF);
+  if(zip.file('xl/calcChain.xml')){zip.remove('xl/calcChain.xml');
+    zip.file('xl/_rels/workbook.xml.rels',(await zip.file('xl/_rels/workbook.xml.rels').async('string')).replace(/<Relationship [^>]*calcChain[^>]*\/>/,''),NOF);
+    zip.file('[Content_Types].xml',(await zip.file('[Content_Types].xml').async('string')).replace(/<Override [^>]*calcChain[^>]*\/>/,''),NOF)}
+  return zip.generateAsync({type:'uint8array',compression:'DEFLATE',compressionOptions:{level:6},mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+async function saveExcel(){
+  if(!S.buf){toast('Open the real employee file first');return}
+  const btn=$('#saveXlsx');btn.disabled=true;const old=btn.textContent;btn.textContent='Preparing…';
+  try{
+    const out=await buildWorkbook();
+    const base=(S.fileName||'EMPLOYEE_DATABASE.xlsx').replace(/\.xls[xm]$/i,'').replace(/_updated_\d{4}-\d{2}-\d{2}(_\d+)?$/,'');
+    const name=base+'_updated_'+ds(S.asof)+'.xlsx';
+    let ok=false;
+    if(downloads){try{await downloads.save({filename:name,data:out.slice(0)});ok=true}catch(e){toast(e?.code==='declined'?'Download cancelled':'Download not available here');}}
+    else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);ok=true}
+    if(ok){S.buf=out;S.fileName=name;for(const r of S.recs)delete r.isNew;S.edits={};S.hist=[];$('#srcLbl').textContent=name+' › '+S.sheet+' · '+S.recs.length+' records';S.src=name+' › '+S.sheet;await initZip();persist();render();pendUI();
+      toast('Saved '+name+' - use this file from now on')}
+  }catch(e){console.error(e);toast('Could not build the Excel file: '+e.message)}
+  finally{btn.disabled=false;btn.textContent=old}
 }
 let downloads=null;
 (async()=>{try{downloads=await window.claude?.use?.('downloads')}catch(e){}})();
@@ -399,9 +630,16 @@ $('#prob').onchange=e=>{S.prob=Math.min(24,Math.max(1,parseInt(e.target.value)||
 $('#asof').onchange=e=>{const v=e.target.value;if(v){S.asof=new Date(v+'T00:00:00Z');render()}};
 $('#remember').onchange=persist;
 $('#view').addEventListener('input',e=>{if(e.target.id==='search'){S.q=e.target.value;const pos=e.target.selectionStart;render();const s=$('#search');s.focus();try{s.setSelectionRange(pos,pos)}catch(_){}}});
-$('#view').addEventListener('click',e=>{const tr=e.target.closest('tr[data-row]');if(tr)detail(tr.dataset.row)});
+$('#view').addEventListener('click',e=>{if(e.target.closest('[data-act=add]')){editForm(null);return}const tr=e.target.closest('tr[data-row]');if(tr)detail(tr.dataset.row)});
 $('#view').addEventListener('keydown',e=>{const tr=e.target.closest('tr[data-row]');if(tr&&(e.key==='Enter'||e.key===' ')){e.preventDefault();detail(tr.dataset.row)}});
-$('#dlg').addEventListener('click',e=>{if(e.target.id==='dlgClose'||e.target===$('#dlg'))$('#dlg').close()});
+$('#dlg').addEventListener('click',e=>{const b=e.target.closest('[data-act]');
+  if(b&&b.dataset.act==='edit'){editForm(+b.dataset.row,b.dataset.focus);return}
+  if(b&&b.dataset.act==='cancel'){const r=b.dataset.row;r?detail(r):$('#dlg').close();return}
+  if(e.target.id==='dlgClose'||e.target===$('#dlg'))$('#dlg').close()});
+$('#dlg').addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ef')saveForm(e.target)});
+$('#undoBtn').onclick=undo;
+$('#saveXlsx').onclick=saveExcel;
+window.addEventListener('beforeunload',e=>{if(pendingCount()&&!$('#remember').checked){e.preventDefault();e.returnValue=''}});
 $('#exportBtn').onclick=async()=>{
   const name='HR_register_'+(S.company==='All'?'all':S.company.replace(/\W+/g,'_'))+'_'+ds(S.asof)+'.csv';
   if(downloads){try{await downloads.save({filename:name,data:csvFor()});toast('Saved '+name)}catch(e){toast(e?.code==='declined'?'Download cancelled':'Download not available here')}}
@@ -419,7 +657,9 @@ window.addEventListener('appinstalled',()=>{$('#installBtn').hidden=true;install
 $('#installBtn').onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(_){}installEvt=null;$('#installBtn').hidden=true};
 if('launchQueue' in window){launchQueue.setConsumer(async p=>{const h=p.files&&p.files[0];if(h){try{readFile(await h.getFile())}catch(e){toast('Could not open that file')}}})}
 const now=new Date();S.asof=utc(now.getFullYear(),now.getMonth(),now.getDate());$('#asof').value=ds(S.asof);
-try{const saved=JSON.parse(localStorage.getItem('hrdesk')||'null');if(saved&&saved.recs){$('#remember').checked=true;S.prob=saved.prob||6;$('#prob').value=S.prob;showApp(saved.recs.map(r=>({...r,hire:dp(r.hire),exp:dp(r.exp),rev:dp(r.rev),exit:dp(r.exit)})),saved.src+' (remembered)')}}catch(e){}
+try{const saved=JSON.parse(localStorage.getItem('hrdesk')||'null');if(saved&&saved.recs){$('#remember').checked=true;S.prob=saved.prob||6;$('#prob').value=S.prob;
+  S.buf=saved.buf?unb64(saved.buf):null;S.fileName=saved.fileName||'';S.sheet=saved.sheet||'';S.C=saved.C||null;S.edits=unpackEdits(saved.edits);
+  showApp(saved.recs.map(r=>({...r,hire:dp(r.hire),exp:dp(r.exp),rev:dp(r.rev),exit:dp(r.exit)})),saved.src.replace(/ \(remembered\)$/,'')+' (remembered)');initZip()}}catch(e){}
 }
 </script>
 </body>
