@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vestates HR Desk</title>
+<meta name="theme-color" content="#0b0b0b">
+<meta name="description" content="Group HR dashboard from the employee database.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HR Desk">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a working HR desk - plain, exact, built for a weekly check-in.
+   IDEA: the group's staff register turned into a live control sheet.
+   PICTURE: the mint headline field with the headcount number beside the company bars.
+   COLOUR and TYPE: black and white plus one mint field; Space Grotesk numbers, Inter text.
+   LAYOUT: header, filter row, tabs; each tab = finding, figures, then tables and lists to act on. */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0d0d0d);--ink:light-dark(#0b0b0b,#f1f1ef);--muted:light-dark(#5f6368,#a3a3a0);--line:light-dark(#e6e6e2,#2a2a28);--soft:light-dark(#f6f6f3,#171716);--mint:light-dark(#b8f5d0,#123326);--mintink:light-dark(#0b0b0b,#b8f5d0);
+--ft:#2a78d6;--ct:#eb6834;--male:#6250d6;--fem:#e87ba4;--crit:#d03b3b;--ser:#ec835a;--warn:#eda100;--good:#0ca30c;--gray:#9ca3af;--chk:#6250d6}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3,.num{font-family:"Space Grotesk",Inter,sans-serif}
+h1{font-size:clamp(26px,3.4vw,40px);line-height:1.05;margin:0;text-wrap:balance}
+h2{font-size:22px;margin:0 0 4px}h3{font-size:16px;margin:0 0 10px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 max(3vw,16px)}
+header{border-bottom:1px solid var(--line)}
+.top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding-block:14px}
+.brand{font:700 18px "Space Grotesk",sans-serif}.brand small{font:400 13px Inter;color:var(--muted);margin-left:8px}
+.btn{font:600 14px Inter;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn:focus-visible,select:focus-visible,input:focus-visible,.tab:focus-visible,.chip:focus-visible{outline:3px solid #2a78d6;outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding-block:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 14px Inter;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+label.set{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+input,select{font:16px Inter;min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+input[type=number]{width:76px}
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line)}
+.tab{flex:none;font:600 15px Inter;padding:12px 14px;min-height:44px;border:0;background:none;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer}
+.tab[aria-selected=true]{color:var(--ink);border-color:var(--ink)}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);border-bottom:1px solid var(--line)}
+.field{background:var(--mint);color:var(--mintink);padding:clamp(22px,3vw,40px) max(3vw,16px)}
+.big{font:700 clamp(64px,9vw,112px)/1 "Space Grotesk",sans-serif;letter-spacing:-.02em}
+.field p{margin:8px 0 0;font-size:16px;max-width:42ch}
+.heroR{padding:clamp(22px,3vw,40px) max(3vw,16px)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.kpi{background:var(--bg);padding:16px max(1.5vw,14px)}
+.kpi .l{font-size:13px;color:var(--muted)}.kpi .v{font:700 30px/1.15 "Space Grotesk",sans-serif;white-space:nowrap}.kpi .s{font-size:13px;color:var(--muted)}
+.kpi.alert .v{color:var(--crit)}
+section.band{padding:28px 0;border-bottom:1px solid var(--line)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
+.lede{color:var(--muted);margin:0 0 16px;font-size:15px}
+.rows{display:grid;gap:10px}
+.row{display:grid;grid-template-columns:120px minmax(0,1fr) 48px;gap:10px;align-items:center;font-size:14px}
+.track{display:flex;height:22px;gap:2px}.seg{height:100%;border-radius:2px;position:relative}
+.seg:first-child{border-radius:4px 2px 2px 4px}.seg:last-child{border-radius:2px 4px 4px 2px}.seg:only-child{border-radius:4px}
+.row .t{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);margin-bottom:12px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-weight:600;text-align:left;color:var(--muted);font-size:13px;padding:8px 10px;border-bottom:1px solid var(--ink)}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.tot td{font-weight:700;border-top:1px solid var(--ink);border-bottom:0}
+tr.sel td{background:var(--soft)}
+tbody tr.click{cursor:pointer}tbody tr.click:hover td{background:var(--soft)}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;border:1px solid currentColor}
+.p-crit{color:var(--crit)}.p-ser{color:#c2552b}.p-warn{color:#a86f00}.p-good{color:#0a7f0a}.p-gray{color:var(--muted)}.p-chk{color:var(--chk)}
+.note{font-size:13px;color:var(--muted);margin:10px 0 0}
+.empty{padding:18px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center}
+.drop{max-width:720px;margin:48px auto;padding:clamp(24px,4vw,48px);border:2px dashed var(--line);border-radius:18px;text-align:center}
+.drop.over{border-color:var(--ink);background:var(--soft)}
+.drop p{color:var(--muted)}
+.acts{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.toolbar input[type=search]{flex:1 1 260px;max-width:420px}
+.issue{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--bg);color:var(--ink);padding:0;width:min(560px,94vw)}
+dialog::backdrop{background:rgb(0 0 0/.45)}
+.dlg{padding:22px}.dl{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 14px;font-size:14px;margin:14px 0}.dl dt{color:var(--muted)}.dl dd{margin:0}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+.scroll{overflow-x:auto}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
+@media(max-width:820px){.hero,.grid2{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){table{font-size:13px}.row{grid-template-columns:92px minmax(0,1fr) 40px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;color:var(--muted)}.stack td:empty{display:none}.stack tr.tot{border-top:1px solid var(--ink)}.dl{grid-template-columns:minmax(0,1fr)}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<header>
+  <div class="wrap top">
+    <div class="brand">Vestates HR Desk<small id="srcLbl">No file loaded</small></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn ghost" id="installBtn" hidden>Install app</button>
+      <button class="btn ghost" id="exportBtn" hidden>Export CSV</button>
+      <button class="btn" id="openBtn">Open employee file</button>
+    </div>
+  </div>
+</header>
+<input type="file" id="file" accept=".xlsx,.xlsm,.xls,.csv" hidden>
+
+<main id="start">
+  <div class="drop" id="drop">
+    <h1>Drop the employee database here</h1>
+    <p>Open <b>VESTATES_EMPLOYEE_DATABASE.xlsx</b> (or any newer copy) and the app builds headcount, salary, exits, gender, contract and probation views from its Database sheet. The file is read in this browser only - nothing is uploaded.</p>
+    <div class="acts">
+      <button class="btn" id="openBtn2">Choose file</button>
+      <button class="btn ghost" id="sampleBtn">Try with sample data</button>
+    </div>
+    <p class="note" id="loadErr" role="alert"></p>
+  </div>
+</main>
+
+<div id="app" hidden>
+  <div class="wrap bar">
+    <div class="chips" id="chips" role="group" aria-label="Company filter"></div>
+    <label class="set">Probation <input type="number" id="prob" min="1" max="24" value="6"> months</label>
+    <label class="set">As at <input type="date" id="asof"></label>
+    <label class="set"><input type="checkbox" id="remember" style="min-height:auto;width:18px;height:18px"> Remember file on this device</label>
+  </div>
+  <div class="wrap"><nav class="tabs" role="tablist" id="tabs"></nav></div>
+  <div id="view"></div>
+</div>
+
+<dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+{
+const $=s=>document.querySelector(s);
+const COMPANIES=['365 Energy','Apex Restaurant','Vestates','Zbom Home','Farm2Table','Other / Unmapped'];
+const TABS=[['overview','Overview'],['salary','Salary cost'],['exits','Exits'],['contracts','Contracts & probation'],['people','People'],['quality','Data checks']];
+const STATUS=[['Expired','crit','--crit'],['Due ≤30 days','ser','--ser'],['Due 31–90 days','warn','--warn'],['Running >90 days','good','--good'],['No end date','gray','--gray'],['Check date','chk','--chk']];
+const PCLS={'On probation':'good','Ending ≤30 days':'ser','Ended ≤30 days ago':'crit','Completed':'gray'};
+const S={recs:[],src:'',company:'All',prob:6,asof:null,tab:'overview',q:''};
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf=new Intl.NumberFormat('en-NG');
+const fmt=n=>n?nf.format(Math.round(n)):'–';
+const ngn=n=>n?'₦'+nf.format(Math.round(n)):'–';
+const ngnM=n=>n>=1e6?'₦'+(n/1e6).toFixed(2)+'m':ngn(n);
+const pct=(a,b)=>b?(100*a/b).toFixed(1)+'%':'–';
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dstr=d=>d?String(d.getUTCDate()).padStart(2,'0')+'-'+MON[d.getUTCMonth()]+'-'+d.getUTCFullYear():'';
+const utc=(y,m,d)=>new Date(Date.UTC(y,m,d));
+const days=(a,b)=>Math.round((a-b)/864e5);
+const addMonths=(d,n)=>{const y=d.getUTCFullYear(),m=d.getUTCMonth()+n,last=new Date(Date.UTC(y,m+1,0)).getUTCDate();return utc(y,m,Math.min(d.getUTCDate(),last))};
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('on'),2600)}
+
+/* ---------- parsing ---------- */
+function toDate(v){
+  if(v==null||v==='')return null;
+  if(v instanceof Date&&!isNaN(v))return utc(v.getFullYear(),v.getMonth(),v.getDate()+(v.getHours()>=12?1:0));
+  if(typeof v==='number'&&v>20000&&v<80000){const d=new Date(Date.UTC(1899,11,30)+v*864e5);return utc(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())}
+  const s=String(v).replace(/ /g,' ').trim();if(!s)return null;
+  let m=s.match(/^(\d{1,2})[-\/ ]([A-Za-z]{3})[A-Za-z]*[-\/ ](\d{2,4})$/);
+  if(m){const mi=MON.findIndex(x=>x.toLowerCase()===m[2].toLowerCase());let y=+m[3];if(y<100)y+=2000;if(mi>=0)return utc(y,mi,+m[1])}
+  m=s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);if(m)return utc(+m[3],+m[2]-1,+m[1]);
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return utc(+m[1],+m[2]-1,+m[3]);
+  return 'bad';
+}
+const txt=v=>v==null?'':String(v).replace(/ /g,' ').replace(/\s+/g,' ').trim();
+function group(c){const u=c.toUpperCase();if(!u)return '';if(u.startsWith('365'))return '365 Energy';if(u.startsWith('APEX'))return 'Apex Restaurant';if(u.startsWith('VEST'))return 'Vestates';if(u.startsWith('ZBOM'))return 'Zbom Home';if(u.startsWith('FARM'))return 'Farm2Table';return 'Other / Unmapped'}
+function parseRows(rows,src){
+  let h=-1;
+  for(let i=0;i<Math.min(rows.length,40);i++){const r=(rows[i]||[]).map(x=>txt(x).toLowerCase());if(r.includes('company')&&(r.includes('fullname')||r.includes('full name')||r.includes('job status'))){h=i;break}}
+  if(h<0)throw new Error('Could not find the header row (a row with "Company" and "FullName"). Is this the employee database?');
+  const hdr=rows[h].map(x=>txt(x).toLowerCase());
+  const col=(...names)=>{for(const n of names){const i=hdr.indexOf(n);if(i>=0)return i}return -1};
+  const C={co:col('company'),fn:col('fullname','full name'),first:col('first name'),sur:col('surname'),hire:col('hiring date','hire date'),exp:col('contract expiry date'),dept:col('department'),js:col('job status'),title:col('job title'),gen:col('gender'),sal:col('monthly gross salary'),exit:col('exit date'),why:col('exit reason'),rev:col('revised contract date'),office:col('office'),mgr:col('reporting managers'),email:col('official emails')};
+  const g=(r,i)=>i<0?null:r[i];
+  const out=[];
+  for(let i=h+1;i<rows.length;i++){
+    const r=rows[i]||[];const co=txt(g(r,C.co));if(!co)continue;
+    let name=txt(g(r,C.fn));if(!name)name=[txt(g(r,C.first)),txt(g(r,C.sur))].filter(Boolean).join(' ');
+    const rawHire=g(r,C.hire),rawExp=g(r,C.exp);
+    const salV=g(r,C.sal);const sal=typeof salV==='number'?salV:(parseFloat(String(salV??'').replace(/[^\d.]/g,''))||0);
+    out.push({row:i+1,co,group:group(co),name:name||'(no name)',hire:toDate(rawHire),exp:toDate(rawExp),rev:toDate(g(r,C.rev)),exit:toDate(g(r,C.exit)),why:txt(g(r,C.why)),
+      dept:txt(g(r,C.dept)),type:txt(g(r,C.js)),title:txt(g(r,C.title)),gender:txt(g(r,C.gen)),sal,office:txt(g(r,C.office)),mgr:txt(g(r,C.mgr)),email:txt(g(r,C.email)),
+      textDate:(typeof rawHire==='string'&&rawHire.trim()!=='')||(typeof rawExp==='string'&&rawExp.trim()!=='')});
+  }
+  if(!out.length)throw new Error('The sheet has a header row but no employee rows.');
+  return out;
+}
+function loadBuffer(buf,name){
+  if(typeof XLSX==='undefined')throw new Error('The spreadsheet reader did not load. Check your internet connection and reload.');
+  const wb=XLSX.read(buf,{type:'array',cellDates:true});
+  const order=[...wb.SheetNames].sort((a,b)=>(b.toLowerCase()==='database')-(a.toLowerCase()==='database'));
+  let err;
+  for(const sn of order){try{const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});return {recs:parseRows(rows),sheet:sn}}catch(e){err=e}}
+  throw err||new Error('No usable sheet found.');
+}
+
+/* ---------- calculations (same rules as the Excel DashBoard) ---------- */
+function compute(){
+  const T=S.asof,y=T.getUTCFullYear();
+  for(const r of S.recs){
+    const ex=r.exit instanceof Date?r.exit:null,hire=r.hire instanceof Date?r.hire:null;
+    r.exited=!!(ex&&ex<=T);r.active=!r.exited;r.exitYTD=r.exited&&ex.getUTCFullYear()===y;r.exitD=ex;r.hireD=hire;
+    const end=r.rev instanceof Date?r.rev:(r.exp instanceof Date?r.exp:null);r.end=end;
+    r.cStatus='';r.cDays=null;
+    if(r.active&&r.type.toLowerCase()==='contract'){
+      if(!end)r.cStatus='No end date';
+      else{r.cDays=days(end,T);
+        if(hire&&end<=hire)r.cStatus='Check date';else if(end<T)r.cStatus='Expired';else if(r.cDays<=30)r.cStatus='Due ≤30 days';else if(r.cDays<=90)r.cStatus='Due 31–90 days';else r.cStatus='Running >90 days'}
+    }
+    r.probEnd=r.active&&hire?addMonths(hire,S.prob):null;r.pDays=r.probEnd?days(r.probEnd,T):null;
+    r.pStatus=!r.probEnd?'':r.pDays>30?'On probation':r.pDays>=0?'Ending ≤30 days':r.pDays>=-30?'Ended ≤30 days ago':'Completed';
+  }
+}
+const inF=r=>S.company==='All'||r.group===S.company;
+const byCo=fn=>{const o=COMPANIES.map(c=>({c,...fn(S.recs.filter(r=>r.group===c))}));return o.filter(x=>x.c!=='Other / Unmapped'||Object.values(x).some(v=>typeof v==='number'&&v))};
+const cnt=(a,f)=>a.filter(f).length;
+const isFT=r=>r.type.toLowerCase()==='full time',isCT=r=>r.type.toLowerCase()==='contract';
+const g=v=>v.toLowerCase();
+
+/* ---------- small renderers ---------- */
+function stackRows(data,keys,colors){
+  const max=Math.max(1,...data.map(d=>keys.reduce((s,k)=>s+d[k],0)));
+  return '<div class="rows">'+data.map(d=>{const t=keys.reduce((s,k)=>s+d[k],0);
+    return `<div class="row"><span>${esc(d.c)}</span><div class="track">${keys.map((k,i)=>d[k]?`<div class="seg" title="${esc(k)}: ${d[k]}" style="width:${100*d[k]/max}%;background:var(${colors[i]})"></div>`:'').join('')}</div><span class="t">${fmt(t)}</span></div>`}).join('')+'</div>';
+}
+const legend=(names,colors)=>'<div class="legend">'+names.map((n,i)=>`<span><i style="background:var(${colors[i]})"></i>${esc(n)}</span>`).join('')+'</div>';
+function table(cols,rows,total,opt={}){
+  return `<div class="${opt.scroll?'scroll':''}"><table class="${opt.stack===false?'':'stack'}"><thead><tr>${cols.map(c=>`<th class="${c.n?'n':''}">${esc(c.h)}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(r=>`<tr class="${S.company!=='All'&&r.c===S.company?'sel':''} ${opt.click?'click':''}" ${opt.click?`data-row="${r._row}" tabindex="0"`:''}>${cols.map(c=>`<td class="${c.n?'n':''}">${c.f(r)}</td>`).join('')}</tr>`).join('')
+  }${total?`<tr class="tot">${cols.map(c=>`<td class="${c.n?'n':''}">${c.t?c.t(total):''}</td>`).join('')}</tr>`:''}</tbody></table></div>`;
+}
+const pill=(t,cls)=>t?`<span class="pill p-${cls}">${esc(t)}</span>`:'';
+const sumKeys=(rows,keys)=>{const o={c:'Group total'};for(const k of keys)o[k]=rows.reduce((s,r)=>s+(r[k]||0),0);return o};
+const dayTxt=d=>d==null?'':d<0?`${-d}d overdue`:d===0?'Today':`${d}d left`;
+const pd=d=>d==null?'':d<0?`${-d}d ago`:d===0?'Today':`${d}d left`;
+
+/* ---------- views ---------- */
+function vOverview(){
+  const A=S.recs.filter(r=>r.active&&inF(r)),tot=A.length,ft=cnt(A,isFT),ct=cnt(A,isCT),fem=cnt(A,r=>g(r.gender)==='female'),male=cnt(A,r=>g(r.gender)==='male');
+  const sal=A.reduce((s,r)=>s+r.sal,0),onFile=cnt(A,r=>r.sal>0),exY=cnt(S.recs,r=>inF(r)&&r.exitYTD);
+  const act=cnt(A,r=>['Expired','Due ≤30 days','Check date','No end date'].includes(r.cStatus)),pr30=cnt(A,r=>r.pStatus==='Ending ≤30 days');
+  const cos=new Set(A.map(r=>r.group)).size;
+  const hc=byCo(a=>{const x=a.filter(r=>r.active);return {'Full-time':cnt(x,isFT),'Contract':cnt(x,isCT),'Type not set':cnt(x,r=>!isFT(r)&&!isCT(r))}});
+  const gen=byCo(a=>{const x=a.filter(r=>r.active);return {Male:cnt(x,r=>g(r.gender)==='male'),Female:cnt(x,r=>g(r.gender)==='female'),'Not stated':cnt(x,r=>!['male','female'].includes(g(r.gender)))}});
+  const cs=byCo(a=>Object.fromEntries(STATUS.map(([s])=>[s,cnt(a,r=>r.cStatus===s)])));
+  const hcRows=byCo(a=>{const x=a.filter(r=>r.active);return {ft:cnt(x,isFT),ct:cnt(x,isCT),t:x.length}}),hcT=sumKeys(hcRows,['ft','ct','t']);
+  const who=S.company==='All'?`across ${cos} compan${cos===1?'y':'ies'}`:`at ${S.company}`;
+  return `<div class="hero"><div class="field"><div class="big num">${tot}</div><h1>active staff ${esc(who)}</h1><p>${ft} full-time and ${ct} on contract. ${act?`<b>${act} contract${act===1?'':'s'} need action</b> and ${pr30} probation${pr30===1?'':'s'} end within 30 days.`:'No contracts need action right now.'}</p></div>
+  <div class="heroR"><h3>Headcount by company</h3>${legend(['Full-time','Contract','Type not set'],['--ft','--ct','--gray'])}${stackRows(hc,['Full-time','Contract','Type not set'],['--ft','--ct','--gray'])}</div></div>
+  <div class="kpis">
+    <div class="kpi"><div class="l">Full-time</div><div class="v num">${ft}</div><div class="s">${pct(ft,tot)} of staff</div></div>
+    <div class="kpi"><div class="l">Contract</div><div class="v num">${ct}</div><div class="s">${pct(ct,tot)} of staff</div></div>
+    <div class="kpi"><div class="l">Monthly salary cost</div><div class="v num">${ngnM(sal)}</div><div class="s">${onFile} of ${tot} salaries on file</div></div>
+    <div class="kpi"><div class="l">Exits this year</div><div class="v num">${exY}</div><div class="s">Attrition ${pct(exY,tot+exY)}</div></div>
+    <div class="kpi"><div class="l">Female share</div><div class="v num">${pct(fem,tot)}</div><div class="s">${male} male · ${fem} female</div></div>
+    <div class="kpi alert"><div class="l">Contracts to action</div><div class="v num">${act}</div><div class="s">Expired, due ≤30d or date to fix</div></div>
+    <div class="kpi alert"><div class="l">Probation ending ≤30d</div><div class="v num">${pr30}</div><div class="s">${cnt(A,r=>r.pStatus==='On probation')+pr30} on probation now</div></div>
+  </div>
+  <section class="band"><div class="wrap grid2">
+    <div><h2>Gender mix</h2><p class="lede">Active staff by company.</p>${legend(['Male','Female','Not stated'],['--male','--fem','--gray'])}${stackRows(gen,['Male','Female','Not stated'],['--male','--fem','--gray'])}</div>
+    <div><h2>Contract status</h2><p class="lede">Active contract staff by end-date status.</p>${legend(STATUS.map(s=>s[0]),STATUS.map(s=>s[2]))}${stackRows(cs,STATUS.map(s=>s[0]),STATUS.map(s=>s[2]))}</div>
+  </div></section>
+  <section class="band"><div class="wrap"><h2>Headcount table</h2><p class="lede">Staff with no exit date (or an exit date after the as-at date).</p>${
+    table([{h:'Company',f:r=>esc(r.c),t:r=>r.c},{h:'Full-time',n:1,f:r=>fmt(r.ft),t:r=>fmt(r.ft)},{h:'Contract',n:1,f:r=>fmt(r.ct),t:r=>fmt(r.ct)},{h:'Total',n:1,f:r=>fmt(r.t),t:r=>fmt(r.t)},{h:'% of group',n:1,f:r=>pct(r.t,hcT.t),t:r=>pct(hcT.t,hcT.t)}],hcRows,hcT)
+  }</div></section>`;
+}
+function vSalary(){
+  const rows=byCo(a=>{const x=a.filter(r=>r.active);const m=x.reduce((s,r)=>s+r.sal,0),f=cnt(x,r=>r.sal>0);return {n:x.length,f,m,y:m*12,avg:f?m/f:0}});
+  const tot=sumKeys(rows,['n','f','m','y']);tot.avg=tot.f?tot.m/tot.f:0;
+  const max=Math.max(1,...rows.map(r=>r.m));
+  const missing=S.recs.filter(r=>r.active&&inF(r)&&!r.sal);
+  return `<section class="band"><div class="wrap"><h1>${ngnM(tot.m)} a month in recorded salaries</h1><p class="lede">${ngn(tot.y)} a year · salaries on file for ${tot.f} of ${tot.n} active staff, so the true cost is higher until the Monthly Gross Salary column is complete.</p>
+  <div class="grid2"><div><h3>Monthly cost by company</h3><div class="rows">${rows.map(r=>`<div class="row"><span>${esc(r.c)}</span><div class="track"><div class="seg" style="width:${100*r.m/max}%;background:var(--ft)"></div></div><span class="t">${r.m?ngnM(r.m):'–'}</span></div>`).join('')}</div></div>
+  <div>${table([{h:'Company',f:r=>esc(r.c),t:r=>r.c},{h:'Staff',n:1,f:r=>fmt(r.n),t:r=>fmt(r.n)},{h:'On file',n:1,f:r=>fmt(r.f),t:r=>fmt(r.f)},{h:'Monthly',n:1,f:r=>ngn(r.m),t:r=>ngn(r.m)},{h:'Annual',n:1,f:r=>ngn(r.y),t:r=>ngn(r.y)},{h:'Avg / head',n:1,f:r=>ngn(r.avg),t:r=>ngn(r.avg)},{h:'% of cost',n:1,f:r=>pct(r.m,tot.m),t:r=>pct(tot.m,tot.m)}],rows,tot)}</div></div></div></section>
+  <section class="band"><div class="wrap"><h2>Salaries missing</h2><p class="lede">${missing.length} active staff${S.company==='All'?'':' at '+esc(S.company)} have no Monthly Gross Salary on file.</p>${missing.length?table([{h:'Employee',f:r=>esc(r.name)},{h:'Company',f:r=>esc(r.group)},{h:'Job title',f:r=>esc(r.title)},{h:'Type',f:r=>esc(r.type)}],missing.map(r=>({...r,_row:r.row})),null,{click:1}):''}</div></section>`;
+}
+function vExits(){
+  const rows=byCo(a=>{const ex=a.filter(r=>r.exited),act=cnt(a,r=>r.active),y=cnt(a,r=>r.exitYTD);const rs=w=>cnt(ex,r=>g(r.why)===w);const res=rs('resignation'),ter=rs('termination'),end=rs('end of contract');return {y,all:ex.length,act,res,ter,end,oth:ex.length-res-ter-end}});
+  const tot=sumKeys(rows,['y','all','act','res','ter','end','oth']);
+  const list=S.recs.filter(r=>r.exited&&inF(r)).sort((a,b)=>b.exitD-a.exitD);
+  const reasons={};for(const r of list){const k=r.why||'Not stated';reasons[k]=(reasons[k]||0)+1}
+  return `<section class="band"><div class="wrap"><h1>${tot.y} exit${tot.y===1?'':'s'} so far in ${S.asof.getUTCFullYear()}</h1><p class="lede">Group attrition this year: ${pct(tot.y,tot.act+tot.y)} (exits this year ÷ active staff + exits this year). An exit counts once an Exit Date on or before the as-at date is entered in the Database.</p>
+  ${table([{h:'Company',f:r=>esc(r.c),t:r=>r.c},{h:'This year',n:1,f:r=>fmt(r.y),t:r=>fmt(r.y)},{h:'All time',n:1,f:r=>fmt(r.all),t:r=>fmt(r.all)},{h:'Attrition YTD',n:1,f:r=>pct(r.y,r.act+r.y),t:r=>pct(r.y,r.act+r.y)},{h:'Resignation',n:1,f:r=>fmt(r.res),t:r=>fmt(r.res)},{h:'Termination',n:1,f:r=>fmt(r.ter),t:r=>fmt(r.ter)},{h:'End of contract',n:1,f:r=>fmt(r.end),t:r=>fmt(r.end)},{h:'Other / not stated',n:1,f:r=>fmt(r.oth),t:r=>fmt(r.oth)}],rows,tot)}</div></section>
+  <section class="band"><div class="wrap grid2"><div><h2>Exit register</h2><p class="lede">Most recent first${S.company==='All'?'':' · '+esc(S.company)}.</p>${list.length?table([{h:'Employee',f:r=>esc(r.name)},{h:'Company',f:r=>esc(r.group)},{h:'Exit date',n:1,f:r=>dstr(r.exitD)},{h:'Reason',f:r=>esc(r.why||'Not stated')}],list.map(r=>({...r,_row:r.row})),null,{click:1}):'<div class="empty">No exits recorded yet. Enter an Exit Date and Exit Reason in the Database sheet, save, and open the file again.</div>'}</div>
+  <div><h2>Reasons</h2><p class="lede">All recorded exits${S.company==='All'?'':' at '+esc(S.company)}.</p>${list.length?'<div class="rows">'+Object.entries(reasons).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="row"><span>${esc(k)}</span><div class="track"><div class="seg" style="width:${100*v/list.length}%;background:var(--ct)"></div></div><span class="t">${v}</span></div>`).join('')+'</div>':'<div class="empty">Nothing to break down yet.</div>'}</div></div></section>`;
+}
+function vContracts(){
+  const rows=byCo(a=>{const o={n:cnt(a,r=>r.active&&isCT(r))};for(const [s] of STATUS)o[s]=cnt(a,r=>r.cStatus===s);return o});
+  const tot=sumKeys(rows,['n',...STATUS.map(s=>s[0])]);
+  const prow=byCo(a=>({on:cnt(a,r=>r.pStatus==='On probation'||r.pStatus==='Ending ≤30 days'),e30:cnt(a,r=>r.pStatus==='Ending ≤30 days'),ago:cnt(a,r=>r.pStatus==='Ended ≤30 days ago'),next:a.filter(r=>r.probEnd&&r.pDays>=0).sort((x,y)=>x.probEnd-y.probEnd)[0]}));
+  const ptot=sumKeys(prow,['on','e30','ago']);
+  const rank={'Check date':0,'No end date':1};
+  const watch=S.recs.filter(r=>r.active&&inF(r)&&['Expired','Due ≤30 days','Due 31–90 days','Check date','No end date'].includes(r.cStatus)).sort((a,b)=>((rank[a.cStatus]??2)-(rank[b.cStatus]??2))||((a.cDays??0)-(b.cDays??0)));
+  const pw=S.recs.filter(r=>r.active&&inF(r)&&['On probation','Ending ≤30 days','Ended ≤30 days ago'].includes(r.pStatus)).sort((a,b)=>a.pDays-b.pDays);
+  const scls=Object.fromEntries(STATUS.map(s=>[s[0],s[1]]));
+  return `<section class="band"><div class="wrap"><h1>${tot['Expired']} contracts expired · ${tot['Check date']} dates to fix</h1><p class="lede">Uses Revised Contract Date when filled, otherwise Contract Expiry Date. “Check date” means the end date is on or before the hire date - usually a data-entry slip.</p>
+  ${table([{h:'Company',f:r=>esc(r.c),t:r=>r.c},{h:'Contract staff',n:1,f:r=>fmt(r.n),t:r=>fmt(r.n)},...STATUS.map(([s])=>({h:s,n:1,f:r=>fmt(r[s]),t:r=>fmt(r[s])}))],rows,tot)}</div></section>
+  <section class="band"><div class="wrap"><h2>Contract action list</h2><p class="lede">${watch.length} contract${watch.length===1?'':'s'} to deal with - date fixes first, then most overdue, then soonest due within 90 days.</p>${watch.length?table([{h:'Employee',f:r=>esc(r.name)},{h:'Company',f:r=>esc(r.group)},{h:'Job title',f:r=>esc(r.title)},{h:'Contract end',n:1,f:r=>dstr(r.end)},{h:'Days',n:1,f:r=>dayTxt(r.cDays)},{h:'Status',f:r=>pill(r.cStatus,scls[r.cStatus])}],watch.map(r=>({...r,_row:r.row})),null,{click:1}):'<div class="empty">No contracts need attention.</div>'}</div></section>
+  <section class="band"><div class="wrap"><h2>Probation</h2><p class="lede">Probation end = hire date + ${S.prob} months (change it in the filter row). “Ended ≤30 days ago” is due for a confirmation decision.</p>
+  <div class="grid2"><div>${table([{h:'Company',f:r=>esc(r.c),t:r=>r.c},{h:'On probation',n:1,f:r=>fmt(r.on),t:r=>fmt(r.on)},{h:'Ending ≤30d',n:1,f:r=>fmt(r.e30),t:r=>fmt(r.e30)},{h:'Ended ≤30d ago',n:1,f:r=>fmt(r.ago),t:r=>fmt(r.ago)},{h:'Next end',n:1,f:r=>r.next?dstr(r.next.probEnd):'–'}],prow,ptot)}</div>
+  <div>${pw.length?table([{h:'Employee',f:r=>esc(r.name)},{h:'Company',f:r=>esc(r.group)},{h:'Probation end',n:1,f:r=>dstr(r.probEnd)},{h:'When',n:1,f:r=>pd(r.pDays)},{h:'Status',f:r=>pill(r.pStatus,PCLS[r.pStatus])}],pw.map(r=>({...r,_row:r.row})),null,{click:1}):'<div class="empty">Nobody is on probation for this selection.</div>'}</div></div></div></section>`;
+}
+function vPeople(){
+  const q=S.q.toLowerCase();
+  const list=S.recs.filter(r=>inF(r)&&(!q||[r.name,r.title,r.dept,r.group,r.type].join(' ').toLowerCase().includes(q))).sort((a,b)=>(b.active-a.active)||a.group.localeCompare(b.group)||a.name.localeCompare(b.name));
+  return `<section class="band"><div class="wrap"><div class="toolbar"><input type="search" id="search" placeholder="Search name, job title, department…" value="${esc(S.q)}" aria-label="Search staff"><span class="note" style="margin:0">${list.length} of ${cnt(S.recs,inF)} records · tap a row for details</span></div>
+  ${list.length?table([{h:'Employee',f:r=>esc(r.name)},{h:'Company',f:r=>esc(r.group)},{h:'Department',f:r=>esc(r.dept)},{h:'Job title',f:r=>esc(r.title)},{h:'Type',f:r=>esc(r.type)},{h:'Hired',n:1,f:r=>dstr(r.hireD)},{h:'Status',f:r=>r.active?pill('Active','good'):pill('Exited','gray')}],list.map(r=>({...r,_row:r.row})),null,{click:1}):'<div class="empty">No one matches that search.</div>'}</div></section>`;
+}
+function issues(){
+  const out=[];
+  for(const r of S.recs){
+    if(r.cStatus==='Check date')out.push([r,'Contract end date is on or before the hire date']);
+    if(r.cStatus==='No end date')out.push([r,'Contract staff with no Contract Expiry Date']);
+    if(r.hire==='bad'||r.exp==='bad'||r.exit==='bad')out.push([r,'A date could not be read']);
+    else if(r.textDate)out.push([r,'Date typed as text (works here, but retype it as a real date in Excel)']);
+    if(!r.hire)out.push([r,'No Hiring Date']);
+    if(r.active&&!['male','female'].includes(g(r.gender)))out.push([r,'Gender not stated']);
+    if(r.active&&!isFT(r)&&!isCT(r))out.push([r,'Job Status is not Full Time or Contract']);
+    if(r.group==='Other / Unmapped')out.push([r,`Company “${r.co}” does not match a known company`]);
+    if(r.hireD&&r.hireD>S.asof)out.push([r,'Hiring Date is in the future']);
+  }
+  return out.filter(([r])=>inF(r));
+}
+function vQuality(){
+  const is=issues(),noSal=cnt(S.recs,r=>r.active&&inF(r)&&!r.sal);
+  return `<section class="band"><div class="wrap"><h1>${is.length} record${is.length===1?'':'s'} to tidy in the Database</h1><p class="lede">Fixing these makes every number in the app (and in the Excel dashboard) more reliable. ${noSal} active staff also have no salary on file - see the Salary tab.</p>
+  ${is.length?is.map(([r,t])=>`<div class="issue"><span><b>${esc(r.name)}</b> · ${esc(r.group)} — ${esc(t)}</span><span class="note" style="margin:0">Excel row ${r.row}</span></div>`).join(''):'<div class="empty">No data problems found.</div>'}</div></section>`;
+}
+const VIEWS={overview:vOverview,salary:vSalary,exits:vExits,contracts:vContracts,people:vPeople,quality:vQuality};
+
+/* ---------- render & events ---------- */
+function render(){
+  compute();
+  $('#chips').innerHTML=['All',...COMPANIES.filter(c=>S.recs.some(r=>r.group===c))].map(c=>`<button class="chip" data-co="${esc(c)}" aria-pressed="${S.company===c}">${c==='All'?'All companies':esc(c)}</button>`).join('');
+  $('#tabs').innerHTML=TABS.map(([k,l])=>`<button class="tab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}${k==='quality'?` (${issues().length})`:''}</button>`).join('');
+  try{$('#view').innerHTML=VIEWS[S.tab]()}catch(e){$('#view').innerHTML=`<div class="wrap"><div class="empty">Something went wrong drawing this view: ${esc(e.message)}</div></div>`}
+}
+function showApp(recs,src){
+  S.recs=recs;S.src=src;$('#srcLbl').textContent=src+' · '+recs.length+' records';
+  $('#start').hidden=true;$('#app').hidden=false;$('#exportBtn').hidden=false;
+  const h=location.hash.slice(1);if(VIEWS[h])S.tab=h;render();
+}
+function persist(){
+  try{if($('#remember').checked)localStorage.setItem('hrdesk',JSON.stringify({src:S.src,prob:S.prob,recs:S.recs.map(r=>({...r,hire:ds(r.hire),exp:ds(r.exp),rev:ds(r.rev),exit:ds(r.exit)}))}));else localStorage.removeItem('hrdesk')}catch(e){}
+}
+const ds=d=>d instanceof Date?d.toISOString().slice(0,10):d;
+const dp=s=>s&&s!=='bad'?new Date(s+'T00:00:00Z'):s;
+async function readFile(f){
+  $('#loadErr').textContent='';
+  try{const buf=await f.arrayBuffer();const {recs,sheet}=loadBuffer(new Uint8Array(buf),f.name);showApp(recs,f.name+' › '+sheet);persist();toast('Loaded '+recs.length+' records')}
+  catch(e){$('#loadErr').textContent=e.message;if(!$('#app').hidden)toast(e.message)}
+}
+function sample(){
+  const F=['Ada','Bola','Chidi','Dami','Efe','Femi','Grace','Hauwa','Ibrahim','Joy','Kunle','Lami','Musa','Ngozi','Ola','Precious','Rita','Sani','Tunde','Uche','Victor','Wale','Yemi','Zainab'];
+  const L=['Okafor','Bello','Adeyemi','Eze','Musa','Ojo','Danladi','Nwosu','Lawal','Akpan'];
+  const plan=[['Vestates','Full Time',10],['365 Contract','Contract',12],['365 FT','Full Time',2],['Apex FT','Full Time',4],['Apex Contract','Contract',7],['Zbom','Full Time',4],['Farm2Table','Full Time',2]];
+  const T=S.asof,rec=[];let k=0;
+  for(const [co,type,n] of plan)for(let i=0;i<n;i++,k++){
+    const hire=utc(T.getUTCFullYear()-(k%4),(k*5)%12,1+(k*7)%27);
+    const end=type==='Contract'?addMonths(T,[-40,-5,12,45,120,200][k%6]/30|0):null;
+    const exit=k%17===5?utc(T.getUTCFullYear(),(k%10),10):null;
+    rec.push({row:8+k,co,group:group(co),name:F[k%F.length]+' '+L[(k*3)%L.length],hire,exp:end?new Date(end.getTime()+((k%6)-2)*864e5*9):null,rev:null,exit,why:exit?['Resignation','Termination','End of Contract'][k%3]:'',dept:['Operations','Finance','Facilities','Sales','Administration'][k%5],type,title:['Attendant','Officer','Supervisor','Analyst','Cook'][k%5],gender:k%3?'Male':'Female',sal:co.startsWith('Apex')||k%3===0?[90000,120000,150000,250000][k%4]:0,office:'Abuja',mgr:'',email:'',textDate:false});
+  }
+  showApp(rec,'Sample data (made-up staff)');toast('Showing made-up sample staff');
+}
+function detail(row){
+  const r=S.recs.find(x=>x.row==row);if(!r)return;
+  const items=[['Company',r.co],['Department',r.dept],['Job title',r.title],['Job status',r.type],['Office',r.office],['Reporting manager',r.mgr],['Official email',r.email],['Gender',r.gender],['Hiring date',dstr(r.hireD)],['Contract end',dstr(r.end)],['Contract status',r.cStatus?r.cStatus+(r.cDays!=null?' · '+dayTxt(r.cDays):''):''],['Probation end',r.probEnd?dstr(r.probEnd)+' · '+r.pStatus:''],['Monthly gross',r.sal?ngn(r.sal):'Not on file'],['Exit',r.exitD?dstr(r.exitD)+' · '+(r.why||'Reason not stated'):''],['Excel row',r.row]].filter(x=>x[1]!==''&&x[1]!=null);
+  $('#dlgBody').innerHTML=`<h2>${esc(r.name)}</h2><div>${r.active?pill('Active','good'):pill('Exited','gray')} <span class="note">${esc(r.group)}</span></div><dl class="dl">${items.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl><button class="btn" id="dlgClose">Close</button>`;
+  $('#dlg').showModal();$('#dlgClose').focus();
+}
+function csvFor(){
+  const c=v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+  const head=['Employee','Company group','Company (as entered)','Department','Job title','Job status','Gender','Active','Hiring date','Contract end','Contract status','Days to contract end','Probation end','Probation status','Monthly gross','Exit date','Exit reason','Excel row'];
+  const rows=S.recs.filter(inF).map(r=>[r.name,r.group,r.co,r.dept,r.title,r.type,r.gender,r.active?'Yes':'No',dstr(r.hireD),dstr(r.end),r.cStatus,r.cDays??'',dstr(r.probEnd),r.pStatus,r.sal||'',dstr(r.exitD),r.why,r.row]);
+  return [head,...rows].map(r=>r.map(c).join(',')).join('\r\n');
+}
+let downloads=null;
+(async()=>{try{downloads=await window.claude?.use?.('downloads')}catch(e){}})();
+
+$('#openBtn').onclick=$('#openBtn2').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{const f=e.target.files[0];if(f)readFile(f);e.target.value=''};
+$('#sampleBtn').onclick=sample;
+const drop=$('#drop');
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)readFile(f)});
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer?.files?.[0];if(f)readFile(f)});
+$('#chips').onclick=e=>{const b=e.target.closest('[data-co]');if(b){S.company=b.dataset.co;render()}};
+$('#tabs').onclick=e=>{const b=e.target.closest('[data-tab]');if(b){S.tab=b.dataset.tab;try{history.replaceState(null,'','#'+S.tab)}catch(_){location.hash=S.tab}render()}};
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VIEWS[h]&&h!==S.tab&&S.recs.length){S.tab=h;render()}});
+$('#prob').onchange=e=>{S.prob=Math.min(24,Math.max(1,parseInt(e.target.value)||6));e.target.value=S.prob;render();persist()};
+$('#asof').onchange=e=>{const v=e.target.value;if(v){S.asof=new Date(v+'T00:00:00Z');render()}};
+$('#remember').onchange=persist;
+$('#view').addEventListener('input',e=>{if(e.target.id==='search'){S.q=e.target.value;const pos=e.target.selectionStart;render();const s=$('#search');s.focus();try{s.setSelectionRange(pos,pos)}catch(_){}}});
+$('#view').addEventListener('click',e=>{const tr=e.target.closest('tr[data-row]');if(tr)detail(tr.dataset.row)});
+$('#view').addEventListener('keydown',e=>{const tr=e.target.closest('tr[data-row]');if(tr&&(e.key==='Enter'||e.key===' ')){e.preventDefault();detail(tr.dataset.row)}});
+$('#dlg').addEventListener('click',e=>{if(e.target.id==='dlgClose'||e.target===$('#dlg'))$('#dlg').close()});
+$('#exportBtn').onclick=async()=>{
+  const name='HR_register_'+(S.company==='All'?'all':S.company.replace(/\W+/g,'_'))+'_'+ds(S.asof)+'.csv';
+  if(downloads){try{await downloads.save({filename:name,data:csvFor()});toast('Saved '+name)}catch(e){toast(e?.code==='declined'?'Download cancelled':'Download not available here')}}
+  else{try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+csvFor()],{type:'text/csv'}));a.download=name;document.body.appendChild(a);a.click();a.remove();toast('Downloaded '+name)}
+    catch(e){try{await navigator.clipboard.writeText(csvFor());toast('Copied the register as CSV - paste it into Excel')}catch(_){toast('Export is not available in this view')}}}
+};
+
+/* ---------- installable app: offline cache, install button, open .xlsx with the app ---------- */
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&!/claude\.ai|claudeusercontent/.test(location.hostname)){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('#installBtn').hidden=false});
+window.addEventListener('appinstalled',()=>{$('#installBtn').hidden=true;installEvt=null;toast('HR Desk installed - find it in your apps')});
+$('#installBtn').onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(_){}installEvt=null;$('#installBtn').hidden=true};
+if('launchQueue' in window){launchQueue.setConsumer(async p=>{const h=p.files&&p.files[0];if(h){try{readFile(await h.getFile())}catch(e){toast('Could not open that file')}}})}
+const now=new Date();S.asof=utc(now.getFullYear(),now.getMonth(),now.getDate());$('#asof').value=ds(S.asof);
+try{const saved=JSON.parse(localStorage.getItem('hrdesk')||'null');if(saved&&saved.recs){$('#remember').checked=true;S.prob=saved.prob||6;$('#prob').value=S.prob;showApp(saved.recs.map(r=>({...r,hire:dp(r.hire),exp:dp(r.exp),rev:dp(r.rev),exit:dp(r.exit)})),saved.src+' (remembered)')}}catch(e){}
+}
+</script>
+</body>
+</html>

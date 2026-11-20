@@ -1,0 +1,31 @@
+{
+  "name": "Vestates HR Desk",
+  "short_name": "HR Desk",
+  "description": "Group HR dashboard: headcount, salary cost, exits, gender, contract and probation status from the employee database.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b0b0b",
+  "orientation": "any",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+        "application/vnd.ms-excel.sheet.macroEnabled.12": [".xlsm"],
+        "application/vnd.ms-excel": [".xls"]
+      }
+    }
+  ],
+  "shortcuts": [
+    { "name": "Contracts & probation", "url": "./#contracts", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "People", "url": "./#people", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
