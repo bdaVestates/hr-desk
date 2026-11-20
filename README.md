@@ -1,40 +1,43 @@
 # Vestates HR Desk
 
-An installable web app for the group HR dashboard. It shows headcount, salary cost, exits, gender, and contract and probation status, all built from the Database sheet of `VESTATES_EMPLOYEE_DATABASE.xlsx`.
+HR Desk is the group HR records app and dashboard for 365 Energy, Apex Restaurant, Vestates, Zbom Home and Farm2Table. It shows headcount, salary cost, exits, gender, and contract and probation status, and staff records can be edited by the people who have access.
 
-The app has **no staff data in it**. Each user opens the Excel file inside the app, and the file is read on their own device only. That makes it safe to host in a public GitHub repository.
+**App:** https://bdavestates.github.io/hr-desk/
 
-## What's in this folder
+## How it works
+
+- Everyone signs in with their email and a password.
+- The staff records are kept in Firebase (project `vestates-hr-desk`). Everyone with access sees the same live data.
+- What each person can do depends on their role:
+
+| Role | Can do |
+|---|---|
+| **Admin** | Everything: see and edit each person's salary, delete records, import and export, invite people and change their access, and see the activity log |
+| **Editor** (e.g. assistant HR) | Add staff, edit details, record exits and renew contracts. Sees salary totals by company, not individual salaries |
+| **Viewer** | Sees the dashboard and staff list. Cannot change anything |
+
+These limits are enforced by the database rules in `firestore.rules`, not only by the app, so they can't be bypassed.
+
+## Giving someone access
+
+1. An admin opens **Access** and invites the person's email address with a role.
+2. The person opens the app, chooses **Create your account**, and uses that exact email.
+3. They confirm their email from the message Firebase sends them, then click **I've confirmed**.
+
+To remove someone, an admin clicks **Remove** next to their name on the **Access** page.
+
+## Importing and exporting
+
+- **Import / export → Choose Excel file** (admin only) loads staff from the Database sheet of the employee database workbook. This replaces all the current records.
+- **Download Excel** exports the records. The export includes salaries only when an admin downloads it.
+
+## Files
 
 | File | Purpose |
 |---|---|
 | `index.html` | The app |
-| `manifest.webmanifest` | Name, icon and settings that make it installable |
-| `sw.js` | Lets it open and work offline after the first visit |
-| `icons/` | App icons |
+| `firebase-config.js` | The Firebase project's connection settings (these are not secret) |
+| `firestore.rules` | The database security rules, also published in the Firebase console |
+| `manifest.webmanifest`, `sw.js`, `icons/` | Installing the app and opening it offline |
 
-## Put it online with GitHub Pages (about 5 minutes)
-
-1. Go to github.com, click **New repository**, name it `hr-desk`, set it to **Public** and click **Create repository**.
-2. On the new repository page, click **uploading an existing file**. Drag in `index.html`, `manifest.webmanifest`, `sw.js`, `README.md` and the whole `icons` folder, then click **Commit changes**.
-3. Go to **Settings → Pages**. Under *Build and deployment*, choose **Deploy from a branch**, branch **main**, folder **/ (root)**, and click **Save**.
-4. Wait a minute or two, then refresh the page. GitHub shows the address: `https://YOUR-USERNAME.github.io/hr-desk/`
-
-## Install it
-
-- **Windows or Mac (Chrome or Edge):** open the address and click **Install app** in the app's header, or the install icon at the right of the address bar. HR Desk then opens in its own window and appears in the Start menu or Applications. Once installed on a desktop, you can also right-click an `.xlsx` file and choose **Open with → HR Desk**.
-- **Android (Chrome):** open the address, then go to menu ⋮ → **Install app** (or **Add to Home screen**).
-- **iPhone (Safari):** open the address, then go to Share → **Add to Home Screen**.
-
-Send the same address to anyone in HR or management who should use it. They'll also need the latest employee database file.
-
-## Weekly use
-
-Update the Database sheet in Excel as usual and save it. Then open HR Desk and click **Open employee file** (or drag the file onto the app). Tick **Remember file on this device** if you want it to reopen with the last file loaded.
-
-## Updating the app later
-
-1. Upload the new `index.html` to the repository and replace the old one.
-2. Open `sw.js` on GitHub, change `const VERSION = 'hrdesk-v1';` to `'hrdesk-v2'` (then v3, and so on), and commit.
-
-Installed copies pick up the new version the next time they're opened while online.
+When you change `index.html`, also bump `VERSION` in `sw.js` (for example `hrdesk-v3` to `hrdesk-v4`) so installed copies update.

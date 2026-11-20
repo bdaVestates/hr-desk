@@ -1,6 +1,6 @@
 // Vestates HR Desk - offline support.
 // Bump VERSION whenever you change index.html so every installed copy picks up the update.
-const VERSION = 'hrdesk-v2';
+const VERSION = 'hrdesk-v3';
 const SHELL = [
   './',
   './index.html',
@@ -9,10 +9,12 @@ const SHELL = [
   './icons/icon-512.png',
   './icons/maskable-512.png',
   './icons/apple-touch-icon.png',
-  './icons/favicon-32.png'
+  './icons/favicon-32.png',
+  './firebase-config.js'
 ];
 const LIB = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 const LIB2 = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+const FB = 'https://www.gstatic.com/firebasejs/';
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -33,6 +35,7 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  if (/googleapis\.com$|firebaseapp\.com$/.test(url.hostname) && url.hostname !== 'fonts.googleapis.com') return;
 
   // The page itself: try the network first so updates arrive, fall back to the cached copy offline.
   if (req.mode === 'navigate') {
@@ -60,7 +63,7 @@ self.addEventListener('fetch', e => {
 
   // Everything else (icons, spreadsheet reader): cache first.
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
-    if (res.ok && (url.origin === self.location.origin || req.url === LIB || req.url === LIB2)) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+    if (res.ok && (url.origin === self.location.origin || req.url === LIB || req.url === LIB2 || req.url.startsWith(FB))) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
     return res;
   })));
 });
